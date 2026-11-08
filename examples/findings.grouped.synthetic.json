@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "source": {
+    "name": "纯虚构-云帆示例报告.pdf",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "findings": [
+    {
+      "id": "GROUP-DEMO-01",
+      "category": "format",
+      "severity": "一般",
+      "status": "confirmed",
+      "comment_group": "SYN-TABLE-TYPO",
+      "anchor": {"format": "pdf", "page1": 2, "quote": "构见名称", "locator": "虚构表甲的第一列标题"},
+      "observed": "纯虚构表格的第一列标题将构件写为构见。",
+      "basis": [{"kind": "report", "citation": "纯虚构表甲：两处列标题使用同一名词，均存在同一个错字。", "verified": true}],
+      "action": "核对虚构表甲两处已着色列标题，将构见统一改为构件；在本组首处保留这一条文字批注。"
+    },
+    {
+      "id": "GROUP-DEMO-02",
+      "category": "format",
+      "severity": "一般",
+      "status": "confirmed",
+      "comment_group": "SYN-TABLE-TYPO",
+      "anchor": {"format": "pdf", "page1": 2, "quote": "构见类别", "locator": "同一虚构表甲的第二列标题"},
+      "observed": "纯虚构表格的第二列标题重复出现构见错字。",
+      "basis": [{"kind": "report", "citation": "纯虚构表甲：两处列标题使用同一名词，均存在同一个错字。", "verified": true}],
+      "action": "核对虚构表甲两处已着色列标题，将构见统一改为构件；在本组首处保留这一条文字批注。"
+    },
+    {
+      "id": "GROUP-DEMO-03",
+      "category": "equipment",
+      "severity": "重要",
+      "status": "pending",
+      "comment_group": "SYN-EQUIPMENT-ID",
+      "anchor": {"format": "pdf", "page1": 3, "quote": "虚构仪器甲", "locator": "虚构表乙第一行设备编号空白处"},
+      "observed": "纯虚构设备表的第一行没有设备编号，尚不能追溯到具体设备。",
+      "basis": [{"kind": "report", "citation": "纯虚构表乙的设备编号列；没有任何真实设备或校准资料。", "verified": true}],
+      "action": "核对虚构表乙两行设备的独立原始记录，逐处补足正确编号；不猜填编号，在本组首处统一批注。"
+    },
+    {
+      "id": "GROUP-DEMO-04",
+      "category": "equipment",
+      "severity": "重要",
+      "status": "pending",
+      "comment_group": "SYN-EQUIPMENT-ID",
+      "anchor": {"format": "pdf", "page1": 3, "quote": "虚构仪器乙", "locator": "同一虚构表乙第二行设备编号空白处"},
+      "observed": "纯虚构设备表的第二行同样没有设备编号。",
+      "basis": [{"kind": "report", "citation": "纯虚构表乙的设备编号列；没有任何真实设备或校准资料。", "verified": true}],
+      "action": "核对虚构表乙两行设备的独立原始记录，逐处补足正确编号；不猜填编号，在本组首处统一批注。"
+    },
+    {
+      "id": "GROUP-DEMO-05",
+      "category": "attachments",
+      "severity": "一般",
+      "status": "pending",
+      "anchor": {"format": "pdf", "page1": 4, "quote": "见虚构附图丙", "locator": "虚构结果说明段落末句"},
+      "observed": "纯虚构摘录提及附图丙，但示例材料未提供该图。",
+      "basis": [{"kind": "report", "citation": "纯虚构结果说明的附图引用。", "verified": true}],
+      "action": "核查附图是否存在并补齐对应索引；此问题单独批注，不与前述两组混合。"
+    }
+  ]
+}

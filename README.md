@@ -1,8 +1,12 @@
 # 武汉港湾专用报告审核工具
 
+<img src="skills/wuhan-gangwan-report-review/assets/icon-tech.png" alt="武汉港湾专用报告审核工具图标" width="180" />
+
 面向中国工程检测报告的 AI 辅助审核 skill，重点用于水运、码头、桥梁、道路与桩基报告。它把审核组织为“证据核验 → 计算复核 → 单问题台账 → 原位批注 → 回读与版式验证”。
 
-**一个问题一条批注，原文件不改。** 支持 Word（DOCX；DOC需本地兼容工具）和 PDF 的审核工作流，以及改稿后的复审。
+**独立问题逐处批注；连续同一个重复问题，逐处着色＋一条统一说明。原文件不改。** 支持 Word（DOCX；DOC需本地兼容工具）和 PDF 的审核工作流，以及改稿后的复审。
+
+例如同一表格内连续多行存在相同判定问题：只给各问题值加浅色标记，在组首处写一条说明并列明行号/构件号和数量；正常值不标色。不同判据、严重程度、处理措施、远隔位置，以及数据与最终结论的传播错误仍分开批注。台账保留每处记录，减少的是重复气泡，不是审核覆盖范围。
 
 ## 能做什么
 
@@ -29,14 +33,15 @@
 ```text
 使用 $wuhan-gangwan-report-review 审核这份检测报告。
 按所附模板检查格式，核实中国规范、设备和计算。
-每处问题单独批注，保留原文件，将审核副本保存到我指定的目录。
+独立问题单独批注；连续同一个重复问题逐处着色，合并一条说明。
+保留原文件，将审核副本保存到我指定的目录。
 ```
 
 复审示例：
 
 ```text
 这是修改后的版本。使用 $wuhan-gangwan-report-review 逐条核对旧意见，
-区分已解决、未解决和新增问题，继续在问题原位单独批注。
+区分已解决、未解决和新增问题；独立问题原位批注，连续同类重复项着色合并说明。
 ```
 
 ## 文件结构
@@ -45,9 +50,11 @@
 skills/wuhan-gangwan-report-review/
   SKILL.md                       # 主流程与边界
   agents/openai.yaml             # 中文显示名称与调用提示
+  assets/icon-tech.png            # 科技风应用图标
   references/                    # 技术、格式、批注质检与台账规则
   scripts/validate_findings.py    # 纯标准库台账结构校验
 examples/findings.synthetic.json # 完全虚构的结构示例
+examples/findings.grouped.synthetic.json # 连续重复问题合并示例
 tests/                          # 自动化测试
 evals/                          # 行为评估案例
 ```
@@ -59,9 +66,12 @@ Python 3.9或以上，无第三方依赖：
 ```bash
 python -m unittest discover -s tests -v
 python skills/wuhan-gangwan-report-review/scripts/validate_findings.py examples/findings.synthetic.json --json
+python skills/wuhan-gangwan-report-review/scripts/validate_findings.py examples/findings.grouped.synthetic.json --json
 ```
 
 校验器仅验证数据结构，**不证明规范、计算、批注锚点或工程结论正确**。`calculation.expression`只作为文本存储，不执行其中表达式。
+
+台账兼容既有v1，可选`comment_group`用于分组。输出分别统计问题位置、文字批注、合并组；标记10处可以只有1条文字批注。是否属于同一连续问题仍需审查者核实。
 
 ## 隐私、使用边界和许可证
 

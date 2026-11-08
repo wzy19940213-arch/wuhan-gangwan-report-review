@@ -29,10 +29,24 @@
 | `basis` | 数组 | 依据对象，允许为空；不要为满足结构而虚构依据 |
 | `action` | 非空字符串 | 明确修改或核实动作，不擅自改原始检测数据 |
 | `calculation` | 对象，可选 | 算术复核过程；详见下节 |
+| `comment_group` | 非空字符串，可选 | 同一连续表格/段落内同一问题的文字批注合并组；详见下节 |
 
-其他字段不接受。一个问题涉及多处时，在各位置分别创建问题并使用独立 ID；不要将多个位置塞入 `anchor` 数组。**程序只能拒绝数组锚点，不能自动保证字符串中真的只有一个位置、一个问题，不能代替人工审查。**
+除两个可选字段外，表中字段均必需；其他字段不接受。一个问题涉及多处时，仍在每个位置创建独立 ID 和单个 `anchor`，不要把多个位置塞入 `anchor` 数组。未分组的位置各有一条文字批注；符合下述条件的同组位置全部着色、只用一条统一文字批注。**程序只能拒绝数组锚点并检查分组字段，不能保证字符串中真的只有一个位置或问题，不能代替人工审查。**
 
 复审的“已解决/未解决/部分解决/新增/现资料无法确认”状态另存文字对照表，并按问题ID关联；v1不为此扩展字段。该复审状态与`status`的证据核实程度不同，已解决的问题不必重复写入新增批注台账。
+
+## 可选 `comment_group`
+
+这是 v1 的向后兼容可选扩展，不改变原必需字段。旧台账不含此字段时，每个位置仍独立批注。
+
+- 只为**同一连续表格或段落中、具有相同问题性质、依据及处理建议**的多处位置使用相同组 ID。其他位置仍分别批注，不为减少数量而合并不同问题或不同章节。
+- 组 ID 是非空字符串、大小写敏感。每个位置最多属于一个组，不接受数组或嵌套组。不同 ID 的组独立处理，不因类别相同就互相合并。
+- 每组至少两个成员；组内 `category`、`severity`、`status` 和 `anchor.format` 必须一致。校验器会检查这些结构约束。
+- 按原文阅读顺序排列 `findings`。同组在数组中首次出现的成员是**组首成员**，其 `anchor` 承载该组唯一的文字批注；该批注应完整说明组内同一问题。组内其他成员保留各自定位及颜色标记，不另重复文字批注。
+- 每个成员仍须保留完整的 `observed`、`basis`、`action` 等必需信息，便于追溯。组首文字应覆盖全组，不能仅说明第一处。
+- **是否属于同一问题、是否属于同一局部连续表格或段落、是否依据及建议相同，必须人工核验。** 同一局部表格可夹正常行，但正常行不标记，并在统一批注中明确排除。程序不通过页码、JSON 数组位置或字符串相似度替代这些判断；即使结构通过也可能需要拆组。它不生成或验证实际颜色、文字批注或批注锚点。
+
+结构有效时的数量约定：`locations` 为所有位置条数；`groups` 为不同组 ID 数；`comments` 为未分组位置数加组数。它们是台账计划数量，不是从已生成文档中核实的批注数量。空台账三个数量均为零。
 
 ## `anchor`
 
@@ -74,6 +88,7 @@ PDF 坐标约定：左上角为原点，向右/向下为正，单位为 point（
 ```sh
 python skills/wuhan-gangwan-report-review/scripts/validate_findings.py examples/findings.synthetic.json
 python skills/wuhan-gangwan-report-review/scripts/validate_findings.py examples/findings.synthetic.json --json
+python skills/wuhan-gangwan-report-review/scripts/validate_findings.py examples/findings.grouped.synthetic.json --json
 ```
 
 也可用 `-` 从标准输入读取 UTF-8 JSON。支持 UTF-8 BOM；拒绝重复 JSON 对象键、`NaN`、`Infinity`、`-Infinity` 及溢出产生的无限数。
@@ -82,4 +97,4 @@ python skills/wuhan-gangwan-report-review/scripts/validate_findings.py examples/
 - `1`：结构不符合本说明。
 - `2`：读取、UTF-8 解码、JSON 解析或命令用法失败。
 
-默认结果为 UTF-8 人读输出；`--json` 输出含 `valid`、`errors`、`limitation` 的 JSON。参数用法错误由命令行解析器打印帮助并退出 `2`。
+默认结果为 UTF-8 人读输出；`--json` 保留 `valid`、`errors`、`limitation` 字段，仅在结构有效时增加 `counts: {"locations": 数量, "comments": 数量, "groups": 数量}`。无效台账不提供数量，避免误导。Python 调用 `counts(data)` 时也会先校验；无效台账抛出 `ValueError`。参数用法错误由命令行解析器打印帮助并退出 `2`。

@@ -13,6 +13,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "skills" / "wuhan-gangwan-report-review" / "scripts" / "validate_findings.py"
 EXAMPLE = ROOT / "examples" / "findings.synthetic.json"
+GROUPED_EXAMPLE = ROOT / "examples" / "findings.grouped.synthetic.json"
 SPEC = importlib.util.spec_from_file_location("validate_findings", SCRIPT)
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
@@ -205,6 +206,114 @@ class LedgerTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(path.read_bytes(), raw)
             self.assertEqual(list(Path(folder).iterdir()), [path])
+
+    def add_group(self, group="SYN-GROUP-A"):
+        """Add two independent locations with a shared synthetic issue."""
+        seed = self.ledger["findings"][0]
+        for offset in range(2):
+            finding = copy.deepcopy(seed)
+            finding["id"] = group + "-" + str(offset)
+            finding["anchor"]["locator"] = "纯虚构连续表格的第" + str(offset + 1) + "处"
+            finding["comment_group"] = group
+            self.ledger["findings"].append(finding)
+
+    def test_old_ledger_counts_and_empty_counts(self):
+        self.assertEqual(MODULE.counts(self.ledger), {"locations": 2, "comments": 2, "groups": 0})
+        self.ledger["findings"] = []
+        self.assertEqual(MODULE.counts(self.ledger), {"locations": 0, "comments": 0, "groups": 0})
+
+    def test_single_group_reduces_comments_not_locations(self):
+        self.add_group()
+        before = copy.deepcopy(self.ledger)
+        self.assertEqual(self.errors(), [])
+        self.assertEqual(MODULE.counts(self.ledger), {"locations": 4, "comments": 3, "groups": 1})
+        self.assertEqual(self.ledger, before)
+
+    def test_multiple_groups_remain_independent_even_with_same_category(self):
+        self.add_group("SYN-GROUP-A")
+        self.add_group("SYN-GROUP-B")
+        self.assertEqual(self.errors(), [])
+        self.assertEqual(MODULE.counts(self.ledger), {"locations": 6, "comments": 4, "groups": 2})
+
+    def test_single_member_group_is_invalid_and_not_counted(self):
+        self.ledger["findings"][0]["comment_group"] = "SYN-ONLY-ONE"
+        self.assertTrue(any("至少需要 2" in error for error in self.errors()))
+        with self.assertRaises(ValueError):
+            MODULE.counts(self.ledger)
+
+    def test_group_id_must_be_one_nonempty_string(self):
+        for bad in ["", " \t", None, True, 42, ["A", "B"], {"group": "A"}]:
+            with self.subTest(bad=bad):
+                self.ledger["findings"][0]["comment_group"] = bad
+                self.assertTrue(self.errors())
+
+    def test_group_category_severity_status_must_match(self):
+        self.add_group()
+        original = copy.deepcopy(self.ledger)
+        for field, value in [("category", "technical"), ("severity", "重大"), ("status", "pending")]:
+            with self.subTest(field=field):
+                self.ledger = copy.deepcopy(original)
+                self.ledger["findings"][-1][field] = value
+                self.assertTrue(any("同一 comment_group" in error and field in error for error in self.errors()))
+
+    def test_group_anchor_formats_must_match(self):
+        self.add_group()
+        self.ledger["findings"][-1]["anchor"]["format"] = "docx"
+        self.assertTrue(any("同一 comment_group" in error and "anchor.format" in error for error in self.errors()))
+
+    def test_group_does_not_allow_missing_required_fields_or_array_anchors(self):
+        self.add_group()
+        self.ledger["findings"][-1]["anchor"] = []
+        del self.ledger["findings"][-1]["action"]
+        errors = self.errors()
+        self.assertTrue(any("anchor" in error for error in errors))
+        self.assertTrue(any("action" in error for error in errors))
+
+    def test_counts_refuses_other_structural_errors_too(self):
+        self.add_group()
+        self.ledger["source"]["sha256"] = "invalid"
+        with self.assertRaises(ValueError):
+            MODULE.counts(self.ledger)
+
+    def test_grouping_does_not_claim_to_validate_document_continuity_or_advice(self):
+        self.add_group()
+        self.ledger["findings"][-1]["anchor"]["page1"] = 500
+        self.ledger["findings"][-1]["action"] = "不同建议必须人工拆组，程序不能判断语义。"
+        self.ledger["findings"][-1]["basis"] = []
+        self.assertEqual(self.errors(), [])
+        self.assertIn("分组在原文中连续", MODULE.LIMITATION)
+
+    def test_grouped_synthetic_example_and_cli_counts(self):
+        data = json.loads(GROUPED_EXAMPLE.read_text(encoding="utf-8"))
+        self.assertEqual(MODULE.validate(data), [])
+        expected = {"locations": 5, "comments": 3, "groups": 2}
+        self.assertEqual(MODULE.counts(data), expected)
+        result = self.cli(json.dumps(data).encode("utf-8"), "--json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        response = json.loads(result.stdout.decode("utf-8"))
+        self.assertTrue(response["valid"])
+        self.assertEqual(response["errors"], [])
+        self.assertEqual(response["counts"], expected)
+        self.assertIn("limitation", response)
+
+    def test_cli_old_ledger_has_backwards_compatible_fields_and_counts(self):
+        result = self.cli(json.dumps(self.ledger).encode("utf-8"), "--json")
+        response = json.loads(result.stdout.decode("utf-8"))
+        self.assertEqual(result.returncode, 0)
+        self.assertTrue(response["valid"])
+        self.assertEqual(response["errors"], [])
+        self.assertIn("limitation", response)
+        self.assertEqual(response["counts"], {"locations": 2, "comments": 2, "groups": 0})
+
+    def test_cli_invalid_structure_or_parse_never_presents_counts(self):
+        self.ledger["findings"][0]["comment_group"] = "SYN-SINGLE"
+        for raw, expected_exit in [(json.dumps(self.ledger).encode("utf-8"), 1), (b"{", 2)]:
+            with self.subTest(expected_exit=expected_exit):
+                result = self.cli(raw, "--json")
+                response = json.loads(result.stdout.decode("utf-8"))
+                self.assertEqual(result.returncode, expected_exit)
+                self.assertFalse(response["valid"])
+                self.assertNotIn("counts", response)
 
 
 if __name__ == "__main__":

@@ -18,7 +18,7 @@ SEVERITIES = {"重大", "重要", "一般"}
 STATUSES = {"confirmed", "conditional", "pending"}
 FORMATS = {"pdf", "docx", "doc"}
 BASIS_KINDS = {"standard", "design", "report", "calculation"}
-LIMITATION = "仅检查台账结构；未验证规范真实性、计算正确性、锚点位置或一条一问题。"
+LIMITATION = "仅检查台账结构；未验证规范真实性、计算正确性、锚点位置、一条一问题或分组在原文中连续且依据建议相同。"
 
 
 def _reject_constant(value: str) -> None:
@@ -98,11 +98,16 @@ def validate(data: Any) -> List[str]:
         error("$.findings", "必须是数组")
         return errors
     seen = set()
+    groups = {}
     required = {"id", "category", "severity", "status", "anchor", "observed", "basis", "action"}
     for index, finding in enumerate(findings):
         path = "$.findings[" + str(index) + "]"
-        if not obj(finding, path, required, {"calculation"}):
+        if not obj(finding, path, required, {"calculation", "comment_group"}):
             continue
+        if "comment_group" in finding:
+            group = finding["comment_group"]
+            if string(group, path + ".comment_group"):
+                groups.setdefault(group, []).append((index, finding))
         identifier = finding.get("id")
         if string(identifier, path + ".id"):
             if identifier in seen:
@@ -166,7 +171,37 @@ def validate(data: Any) -> List[str]:
                 for field in ("unit", "rounding"):
                     if field in calc:
                         string(calc[field], cp + "." + field)
+    for group, members in groups.items():
+        first_index, first = members[0]
+        first_path = "$.findings[" + str(first_index) + "]"
+        if len(members) < 2:
+            error(first_path + ".comment_group", "分组 " + group + " 至少需要 2 个位置；单位置应省略 comment_group")
+        for index, finding in members[1:]:
+            path = "$.findings[" + str(index) + "]"
+            for field in ("category", "severity", "status"):
+                if finding.get(field) != first.get(field):
+                    error(path + "." + field, "同一 comment_group 的 " + field + " 必须与组首成员 " + first_path + " 一致")
+            first_anchor = first.get("anchor")
+            anchor = finding.get("anchor")
+            if (isinstance(first_anchor, dict) and isinstance(anchor, dict)
+                    and anchor.get("format") != first_anchor.get("format")):
+                error(path + ".anchor.format", "同一 comment_group 的 anchor.format 必须与组首成员 " + first_path + " 一致")
     return errors
+
+
+def counts(data: Any) -> dict:
+    """Count planned locations/comments/groups, only after structural validation.
+
+    Distinct group IDs remain independent. The first member in findings order
+    owns that group's one text comment; this function creates no annotations.
+    """
+    errors = validate(data)
+    if errors:
+        raise ValueError("无效台账不能计算批注数量：" + errors[0])
+    findings = data["findings"]
+    groups = {finding["comment_group"] for finding in findings if "comment_group" in finding}
+    independent = sum("comment_group" not in finding for finding in findings)
+    return {"locations": len(findings), "comments": independent + len(groups), "groups": len(groups)}
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -192,14 +227,20 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     except RecursionError:
         errors = ["$: 嵌套层级过深，无法进行结构校验"]
     if args.json_output:
-        print(json.dumps({"valid": not errors, "errors": errors, "limitation": LIMITATION}, ensure_ascii=False))
+        result = {"valid": not errors, "errors": errors, "limitation": LIMITATION}
+        if not errors:
+            result["counts"] = counts(data)
+        print(json.dumps(result, ensure_ascii=False))
     elif errors:
         print("结构校验未通过（" + str(len(errors)) + "项）：", file=sys.stderr)
         for error in errors:
             print("- " + error, file=sys.stderr)
         print(LIMITATION, file=sys.stderr)
     else:
-        print("结构校验通过；问题条数：" + str(len(data["findings"])) + "。" + LIMITATION)
+        summary = counts(data)
+        print("结构校验通过；位置数：" + str(summary["locations"]) +
+              "；计划文字批注数：" + str(summary["comments"]) +
+              "；合并组数：" + str(summary["groups"]) + "。" + LIMITATION)
     return 1 if errors else 0
 
 
