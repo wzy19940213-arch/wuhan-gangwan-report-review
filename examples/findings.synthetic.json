@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "source": {
+    "name": "虚构示例-星砂试验台报告.pdf",
+    "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "findings": [
+    {
+      "id": "SYN-001",
+      "category": "calculation",
+      "severity": "重要",
+      "status": "confirmed",
+      "anchor": {
+        "format": "pdf",
+        "page1": 2,
+        "quote": "合格点数18，检测点数20，合格率95%",
+        "locator": "虚构表1第1行合格率单元格",
+        "bbox": [120, 200, 230, 220]
+      },
+      "observed": "纯虚构测试数据：18/20与所列95%不一致。",
+      "basis": [
+        {
+          "kind": "calculation",
+          "citation": "合格率=合格点数/总点数×100；仅演示算术，不引用工程规范。",
+          "verified": true
+        }
+      ],
+      "action": "核对虚构示例原始数字；若18和20无误，应为90%。",
+      "calculation": {
+        "expression": "passed / total * 100",
+        "inputs": {"passed": 18, "total": 20},
+        "result": 90,
+        "unit": "%",
+        "rounding": "精确值，无需修约"
+      }
+    },
+    {
+      "id": "SYN-002",
+      "category": "standards",
+      "severity": "一般",
+      "status": "pending",
+      "anchor": {
+        "format": "pdf",
+        "page1": 3,
+        "locator": "虚构表2的检测依据栏"
+      },
+      "observed": "纯虚构示例引用的演示规范尚未核实，不能据此认定合规。",
+      "basis": [
+        {
+          "kind": "standard",
+          "citation": "虚构演示规范 DEMO-NOT-A-REAL-STANDARD，无实际工程效力",
+          "verified": false
+        }
+      ],
+      "action": "实际工作中应查明真实适用规范；此示例不用于任何工程判定。"
+    }
+  ]
+}

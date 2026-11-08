@@ -1,0 +1,4 @@
+interface:
+  display_name: "武汉港湾专用报告审核工具"
+  short_description: "核验中国工程检测报告的规范、设备、计算和证据，并逐处添加审核批注"
+  default_prompt: "使用 $wuhan-gangwan-report-review 审核这份工程检测报告，核对规范、设备、计算和结论，每个问题在原位单独批注，保留原件。"
